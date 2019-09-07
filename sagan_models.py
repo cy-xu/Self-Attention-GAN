@@ -29,13 +29,17 @@ class Self_Attn(nn.Module):
         m_batchsize,C,width ,height = x.size()
         proj_query  = self.query_conv(x).view(m_batchsize,-1,width*height).permute(0,2,1) # B X CX(N)
         proj_key =  self.key_conv(x).view(m_batchsize,-1,width*height) # B X C x (*W*H)
+
+        # (b×N×C) X (b×C×N) = (b×N×N)
         energy =  torch.bmm(proj_query,proj_key) # transpose check
         attention = self.softmax(energy) # BX (N) X (N) 
         proj_value = self.value_conv(x).view(m_batchsize,-1,width*height) # B X C X N
 
+        # (b×C×N) X (b×N×N)  = (b×C×N)
         out = torch.bmm(proj_value,attention.permute(0,2,1) )
         out = out.view(m_batchsize,C,width,height)
         
+        # shape of out and x?
         out = self.gamma*out + x
         return out,attention
 
@@ -52,6 +56,7 @@ class Generator(nn.Module):
 
         repeat_num = int(np.log2(self.imsize)) - 3
         mult = 2 ** repeat_num # 8
+        # dim from 100 -> 100 * 8
         layer1.append(SpectralNorm(nn.ConvTranspose2d(z_dim, conv_dim * mult, 4)))
         layer1.append(nn.BatchNorm2d(conv_dim * mult))
         layer1.append(nn.ReLU())
